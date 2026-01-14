@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebSocket 客户端</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>WebSocket 客户端</h1>
+      <div class="status-indicator">
+        <span id="status-text">未连接</span>
+        <span id="status-dot" class="status-dot status-closed"></span>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <!-- 左侧面板 -->
+      <div class="left-panel" id="left-panel">
+        <!-- 配置面板 -->
+        <section class="config-panel">
+          <h2>连接配置</h2>
+          <div class="form-group">
+            <label for="ws-url">连接地址:</label>
+            <input type="text" id="ws-url" placeholder="ws://localhost:8080" value="ws://localhost:8080">
+          </div>
+          <div class="form-group">
+            <label>URL 参数:</label>
+            <div id="url-params-list" class="key-value-list"></div>
+            <button type="button" id="add-url-param-btn" class="btn btn-secondary btn-small">+ 添加参数</button>
+          </div>
+          <div class="form-group">
+            <label>请求头:</label>
+            <div id="headers-list" class="key-value-list"></div>
+            <button type="button" id="add-header-btn" class="btn btn-secondary btn-small">+ 添加请求头</button>
+          </div>
+          <div class="form-group">
+            <label for="idle-timeout">空闲超时 (秒, 0=禁用):</label>
+            <input type="number" id="idle-timeout" value="300" min="0" step="1">
+          </div>
+          <div class="button-group">
+            <button id="save-config-btn" class="btn btn-primary">保存配置</button>
+            <button id="connect-btn" class="btn btn-success">连接</button>
+          </div>
+        </section>
+
+        <!-- 心跳控制 -->
+        <section class="heartbeat-panel" id="heartbeat-panel" style="display: none;">
+          <h2>心跳控制</h2>
+          <div class="form-group">
+            <label for="heartbeat-interval">心跳间隔 (秒):</label>
+            <input type="number" id="heartbeat-interval" value="30" min="1" step="1">
+          </div>
+          <div class="form-group">
+            <label for="heartbeat-type">心跳类型:</label>
+            <select id="heartbeat-type">
+              <option value="message" selected>自定义消息</option>
+              <option value="ping">Ping/Pong</option>
+            </select>
+          </div>
+          <div class="form-group" id="heartbeat-message-group">
+            <label for="heartbeat-message">心跳消息内容:</label>
+            <textarea id="heartbeat-message" placeholder="ping" rows="2">ping</textarea>
+          </div>
+          <div class="button-group">
+            <button id="toggle-heartbeat-btn" class="btn btn-success">启动心跳</button>
+            <button id="send-heartbeat-btn" class="btn btn-secondary">发送心跳</button>
+          </div>
+        </section>
+
+        <!-- 语音模式 -->
+        <section class="voice-panel">
+          <h2>语音模式</h2>
+          <div class="form-group">
+            <label style="display: flex; align-items: center; margin-bottom: 10px;">
+              <input type="checkbox" id="enable-voice-mode" style="width: auto; margin-right: 6px;">
+              启用语音模式
+            </label>
+          </div>
+          <div id="voice-mode-config" style="display: none;">
+            <div class="form-group">
+              <label>开始包配置 (JSON):</label>
+              <div style="margin-bottom: 8px;">
+                <button type="button" id="paste-voice-start-json-btn" class="btn btn-secondary btn-small">📋 粘贴 JSON</button>
+                <button type="button" id="add-voice-start-field-btn" class="btn btn-secondary btn-small">+ 添加字段</button>
+              </div>
+              <div id="paste-voice-start-json-area" style="display: none; margin-bottom: 8px;">
+                <textarea id="paste-voice-start-json-input" placeholder="粘贴 JSON 文本，例如: {&quot;type&quot;: &quot;start&quot;, &quot;sessionId&quot;: &quot;123&quot;}" rows="4" style="width: 100%; font-family: monospace; font-size: 12px;"></textarea>
+                <div style="margin-top: 4px;">
+                  <button type="button" id="parse-voice-start-json-btn" class="btn btn-primary btn-small">解析并填充</button>
+                  <button type="button" id="cancel-paste-voice-start-json-btn" class="btn btn-secondary btn-small">取消</button>
+                </div>
+              </div>
+              <div id="voice-start-fields-list" class="key-value-list"></div>
+            </div>
+            <div class="form-group">
+              <label>结束包配置 (JSON):</label>
+              <div style="margin-bottom: 8px;">
+                <button type="button" id="paste-voice-end-json-btn" class="btn btn-secondary btn-small">📋 粘贴 JSON</button>
+                <button type="button" id="add-voice-end-field-btn" class="btn btn-secondary btn-small">+ 添加字段</button>
+              </div>
+              <div id="paste-voice-end-json-area" style="display: none; margin-bottom: 8px;">
+                <textarea id="paste-voice-end-json-input" placeholder="粘贴 JSON 文本，例如: {&quot;type&quot;: &quot;end&quot;, &quot;sessionId&quot;: &quot;123&quot;}" rows="4" style="width: 100%; font-family: monospace; font-size: 12px;"></textarea>
+                <div style="margin-top: 4px;">
+                  <button type="button" id="parse-voice-end-json-btn" class="btn btn-primary btn-small">解析并填充</button>
+                  <button type="button" id="cancel-paste-voice-end-json-btn" class="btn btn-secondary btn-small">取消</button>
+                </div>
+              </div>
+              <div id="voice-end-fields-list" class="key-value-list"></div>
+            </div>
+            <div class="form-group">
+              <label>音频切片包配置 (JSON):</label>
+              <div style="margin-bottom: 8px;">
+                <button type="button" id="paste-voice-chunk-json-btn" class="btn btn-secondary btn-small">📋 粘贴 JSON</button>
+                <button type="button" id="add-voice-chunk-field-btn" class="btn btn-secondary btn-small">+ 添加字段</button>
+              </div>
+              <div id="paste-voice-chunk-json-area" style="display: none; margin-bottom: 8px;">
+                <textarea id="paste-voice-chunk-json-input" placeholder="粘贴 JSON 文本，例如: {&quot;type&quot;: &quot;audio_chunk&quot;, &quot;sessionId&quot;: &quot;123&quot;}" rows="4" style="width: 100%; font-family: monospace; font-size: 12px;"></textarea>
+                <div style="margin-top: 4px;">
+                  <button type="button" id="parse-voice-chunk-json-btn" class="btn btn-primary btn-small">解析并填充</button>
+                  <button type="button" id="cancel-paste-voice-chunk-json-btn" class="btn btn-secondary btn-small">取消</button>
+                </div>
+              </div>
+              <div id="voice-chunk-fields-list" class="key-value-list"></div>
+            </div>
+            <div class="form-group">
+              <label for="voice-chunk-size">音频切片大小 (KB):</label>
+              <input type="number" id="voice-chunk-size" value="16" min="1" max="64" step="1" style="width: 100px;">
+              <span style="font-size: 12px; color: #666; margin-left: 8px;">建议: 8-32 KB</span>
+            </div>
+            <div class="form-group">
+              <label for="voice-field-name">音频数据字段名:</label>
+              <input type="text" id="voice-field-name" placeholder="audio" value="audio" style="width: 150px;">
+            </div>
+            <div class="form-group">
+              <label style="display: flex; align-items: center;">
+                <input type="checkbox" id="voice-base64-encode" checked style="width: auto; margin-right: 6px;">
+                Base64 编码音频数据
+              </label>
+            </div>
+            <div class="button-group">
+              <button id="start-voice-btn" class="btn btn-success" disabled>🎤 开始语音</button>
+              <button id="stop-voice-btn" class="btn btn-danger" disabled>⏹ 结束语音</button>
+            </div>
+            <div id="voice-status" style="margin-top: 10px; font-size: 12px; color: #666;"></div>
+          </div>
+        </section>
+
+        <!-- 消息发送区域 -->
+        <section class="send-panel">
+          <h2>发送消息</h2>
+          <div class="form-group">
+            <label for="message-format">消息格式:</label>
+            <select id="message-format">
+              <option value="text">文本</option>
+              <option value="json">JSON</option>
+              <option value="binary">二进制</option>
+              <option value="custom">自定义</option>
+            </select>
+          </div>
+          <div class="form-group" id="custom-formatter-group" style="display: none;">
+            <label for="custom-formatter">自定义格式化函数 (JavaScript):</label>
+            <textarea id="custom-formatter" placeholder="(data) => { return JSON.stringify(data); }" rows="5"></textarea>
+            <button id="set-formatter-btn" class="btn btn-secondary">设置格式化函数</button>
+          </div>
+          <div class="form-group" id="text-message-group">
+            <label for="message-input">消息内容:</label>
+            <textarea id="message-input" placeholder="输入要发送的消息..." rows="4"></textarea>
+          </div>
+          <div class="form-group" id="json-message-group" style="display: none;">
+            <label>JSON 字段:</label>
+            <div style="margin-bottom: 8px;">
+              <button type="button" id="paste-json-btn" class="btn btn-secondary btn-small">📋 粘贴 JSON</button>
+              <button type="button" id="add-json-field-btn" class="btn btn-secondary btn-small">+ 添加字段</button>
+            </div>
+            <div id="paste-json-area" style="display: none; margin-bottom: 8px;">
+              <textarea id="paste-json-input" placeholder="粘贴 JSON 文本，例如: {&quot;key1&quot;: &quot;value1&quot;, &quot;key2&quot;: 123}" rows="4" style="width: 100%; font-family: monospace; font-size: 12px;"></textarea>
+              <div style="margin-top: 4px;">
+                <button type="button" id="parse-json-btn" class="btn btn-primary btn-small">解析并填充</button>
+                <button type="button" id="cancel-paste-json-btn" class="btn btn-secondary btn-small">取消</button>
+              </div>
+            </div>
+            <div id="json-fields-list" class="key-value-list"></div>
+          </div>
+          <div class="form-group">
+            <label for="file-input">文件 (可选):</label>
+            <input type="file" id="file-input">
+            <div style="margin-top: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                <button type="button" id="toggle-add-file-to-params" class="btn btn-secondary btn-small">添加到JSON字段: 关闭</button>
+                <input type="checkbox" id="add-file-to-params" style="display: none;">
+              </div>
+              <div id="file-field-group" style="display: none; margin-top: 8px;">
+                <label for="file-field-name">文件字段名:</label>
+                <input type="text" id="file-field-name" placeholder="file" value="file" style="width: 150px; margin-left: 8px;">
+              </div>
+              <label id="file-base64-label" style="display: none; margin-left: 20px;">
+                <input type="checkbox" id="file-base64-encode" checked style="width: auto; margin-right: 6px;">
+                Base64 编码
+              </label>
+            </div>
+            <div style="margin-top: 8px;">
+              <label style="display: flex; align-items: center; margin-bottom: 5px;">
+                <input type="checkbox" id="enable-file-chunk" style="width: auto; margin-right: 6px;">
+                启用文件切片发送
+              </label>
+            </div>
+            <div id="chunk-size-group" style="display: none; margin-top: 8px;">
+              <label for="chunk-size">切片大小 (KB):</label>
+              <input type="number" id="chunk-size" value="64" min="1" max="1024" step="1" style="width: 100px;">
+              <span style="font-size: 12px; color: #666; margin-left: 8px;">建议: 64-256 KB</span>
+            </div>
+            <div id="chunk-time-group" style="display: none; margin-top: 8px;">
+              <label for="chunk-time">切片时间 (ms):</label>
+              <input type="number" id="chunk-time" value="1000" min="100" max="60000" step="100" style="width: 100px;">
+              <span style="font-size: 12px; color: #666; margin-left: 8px;">建议: 1000-5000 ms</span>
+            </div>
+            <div id="file-info" style="margin-top: 8px; font-size: 12px; color: #666; display: none;">
+              <span id="file-type-info"></span>
+              <span id="file-duration-info" style="margin-left: 8px;"></span>
+            </div>
+            <div id="wav-header-option" style="display: none; margin-top: 8px;">
+              <label style="display: flex; align-items: center;">
+                <input type="checkbox" id="remove-wav-header" style="width: auto; margin-right: 6px;">
+                去掉 WAV 头（跳过前 44 字节）
+              </label>
+            </div>
+          </div>
+          <div class="button-group">
+            <button id="send-btn" class="btn btn-primary" disabled>发送消息</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- 可拖动分隔条 -->
+      <div class="resizer" id="resizer"></div>
+
+      <!-- 右侧消息记录 -->
+      <div class="right-panel" id="right-panel">
+        <section class="messages-panel">
+          <div class="messages-header">
+            <h2>消息记录</h2>
+            <a href="#" id="clear-messages-link" class="clear-link">清空消息</a>
+          </div>
+          <div class="messages-controls">
+            <label>
+              <input type="checkbox" id="auto-scroll" checked> 自动滚动
+            </label>
+            <label>
+              <input type="checkbox" id="show-ping-pong" checked> 显示 Ping/Pong
+            </label>
+            <select id="display-format">
+              <option value="text">文本显示</option>
+              <option value="json">JSON 显示</option>
+            </select>
+            <label id="json-wrap-label" style="display: none;">
+              <input type="checkbox" id="json-wrap" checked> JSON 换行
+            </label>
+            <label>
+              字体大小: 
+              <select id="font-size">
+                <option value="12">12px</option>
+                <option value="13" selected>13px</option>
+                <option value="14">14px</option>
+                <option value="16">16px</option>
+                <option value="18">18px</option>
+              </select>
+            </label>
+          </div>
+          <div id="messages-container" class="messages-container"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

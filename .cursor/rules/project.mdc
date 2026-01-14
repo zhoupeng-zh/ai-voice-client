@@ -1,0 +1,104 @@
+---
+alwaysApply: true
+---
+# Node.js 项目规则
+
+## 代码规范
+
+### 代码风格
+- 使用 ES6+ 语法
+- 使用 2 空格缩进
+- 使用单引号（'）而非双引号（"）
+- 语句末尾使用分号
+- 使用 const/let，避免 var
+- 函数和变量命名使用 camelCase
+- 类名使用 PascalCase
+- 常量使用 UPPER_SNAKE_CASE
+- 代码精炼，但是必须保证代码可读性，模块解耦，长方法拆分，面向对象风格
+- 注释完善，要有必要的日志记录
+
+### 文件组织
+- 每个文件只导出一个主要功能
+- 使用命名导出而非默认导出（除非必要）
+- 文件命名使用 kebab-case（如：user-service.js）
+
+### 错误处理
+- 始终使用 try-catch 处理异步错误
+- 使用 Error 对象而非字符串抛出错误
+- 提供有意义的错误消息
+
+## 项目结构
+
+```
+project-root/
+├── src/              # 源代码目录
+│   ├── controllers/  # 控制器
+│   ├── services/     # 业务逻辑
+│   ├── models/       # 数据模型
+│   ├── routes/       # 路由定义
+│   ├── utils/        # 工具函数
+│   └── config/       # 配置文件
+├── tests/            # 测试文件
+├── docs/             # 文档
+├── .env.example      # 环境变量示例
+├── .gitignore        # Git 忽略文件
+├── package.json      # 项目配置
+└── README.md         # 项目说明
+```
+
+## 测试规范
+
+### 测试文件
+- 测试文件放在 `tests/` 目录
+- 测试文件命名：`*.test.js` 或 `*.spec.js`
+- 每个源文件应有对应的测试文件
+
+### 测试要求
+- 测试覆盖率应达到 80% 以上
+- 包含单元测试和集成测试
+- 使用描述性的测试用例名称
+- 每个测试用例应该独立，不依赖其他测试
+
+### 测试命令
+- 运行测试：`npm test`
+- 测试覆盖率：`npm run test:coverage`
+- 监听模式：`npm run test:watch`
+
+## 依赖管理
+
+- 使用 npm 或 yarn 管理依赖
+- 定期更新依赖包
+- 区分 dependencies 和 devDependencies
+- 提交前检查并更新 package-lock.json
+
+## Git 规范
+
+### git操作
+- 仅在本地进行git操作
+- 项目基本框架搭建后初始化项目
+- 模块或者独立功能完成后进行代码提交
+
+### 提交信息
+- 使用清晰的提交信息
+- 格式：`<type>: <description>`
+- 类型：feat, fix, docs, style, refactor, test, chore
+
+### 分支管理
+- main/master：生产环境分支
+- develop：开发分支
+- feature/*：功能分支
+- fix/*：修复分支
+
+## 环境变量
+
+- 使用 .env 文件管理环境变量
+- 提供 .env.example 作为模板
+- 不要将 .env 文件提交到版本控制
+- 使用 dotenv 加载环境变量
+
+## 代码质量
+
+- 使用 ESLint 进行代码检查
+- 使用 Prettier 进行代码格式化
+- 提交前运行 lint 和 format 检查
+- 保持代码简洁、可读、可维护

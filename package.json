@@ -1,0 +1,33 @@
+{
+  "name": "ai-voice-client",
+  "version": "1.0.0",
+  "description": "WebSocket 客户端应用，支持连接管理、断线重连、心跳保活等功能",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "node --test tests/**/*.test.js",
+    "test:watch": "node --test --watch tests/**/*.test.js"
+  },
+  "keywords": [
+    "websocket",
+    "client",
+    "reconnection",
+    "heartbeat"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.18.0",
+    "express": "^4.21.2",
+    "dotenv": "^16.4.7",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
