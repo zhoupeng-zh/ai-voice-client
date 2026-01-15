@@ -59,11 +59,21 @@ export class MessageFormatter {
     if (typeof data === 'string') {
       // 尝试检测是否为 Base64 编码的字符串
       // Base64 字符串通常只包含 A-Z, a-z, 0-9, +, /, = 字符，且长度是4的倍数
+      // 为了减少误判，要求长度至少为 8 个字符，或者包含 Base64 特有的字符（+ 或 /）
       const base64Pattern = /^[A-Za-z0-9+/]*={0,2}$/;
-      if (base64Pattern.test(data) && data.length > 0 && data.length % 4 === 0) {
+      const hasBase64Chars = /[+/]/.test(data);
+      const isLongEnough = data.length >= 8;
+      
+      if (base64Pattern.test(data) && data.length > 0 && data.length % 4 === 0 && (hasBase64Chars || isLongEnough)) {
         try {
           // 尝试解码为 Buffer
-          return Buffer.from(data, 'base64');
+          const decoded = Buffer.from(data, 'base64');
+          // 验证解码结果是否合理（至少包含一些可打印字符或非空）
+          // 如果解码后的数据看起来不合理，回退到 UTF-8
+          if (decoded.length === 0) {
+            return Buffer.from(data, 'utf8');
+          }
+          return decoded;
         } catch {
           // 如果解码失败，作为 UTF-8 处理
           return Buffer.from(data, 'utf8');
