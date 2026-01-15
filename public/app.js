@@ -92,6 +92,10 @@ const elements = {
   jsonWrap: document.getElementById('json-wrap'),
   jsonWrapLabel: document.getElementById('json-wrap-label'),
   fontSize: document.getElementById('font-size'),
+  messageFilter: document.getElementById('message-filter'),
+  clearFilterBtn: document.getElementById('clear-filter-btn'),
+  addReverseFilterBtn: document.getElementById('add-reverse-filter-btn'),
+  reverseFilterList: document.getElementById('reverse-filter-list'),
   leftPanel: document.getElementById('left-panel'),
   rightPanel: document.getElementById('right-panel'),
   resizer: document.getElementById('resizer')
@@ -112,6 +116,8 @@ let isRecording = false; // 是否正在录音
 let voiceChunkTimer = null; // 音频切片定时器
 let eventSource = null;
 let frontendWs = null; // 前端到后端的 WebSocket 连接
+let allMessages = []; // 存储所有消息数据，用于筛选
+let reverseFilterKeywords = []; // 反向过滤关键词列表
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
@@ -173,6 +179,24 @@ function initEventListeners() {
   elements.fontSize.addEventListener('change', () => {
     updateMessageFontSize();
   });
+  // 消息筛选功能
+  if (elements.messageFilter) {
+    elements.messageFilter.addEventListener('input', () => {
+      applyMessageFilter();
+    });
+  }
+  if (elements.clearFilterBtn) {
+    elements.clearFilterBtn.addEventListener('click', () => {
+      elements.messageFilter.value = '';
+      applyMessageFilter();
+    });
+  }
+  // 反向过滤关键词列表
+  if (elements.addReverseFilterBtn) {
+    elements.addReverseFilterBtn.addEventListener('click', () => {
+      addReverseFilterKeyword();
+    });
+  }
   elements.addUrlParamBtn.addEventListener('click', () => addKeyValueItem('url-param'));
   elements.addHeaderBtn.addEventListener('click', () => addKeyValueItem('header'));
   elements.addJsonFieldBtn.addEventListener('click', () => addJsonFieldItem());
@@ -1908,9 +1932,13 @@ function startSSE() {
  * 添加消息到显示
  */
 function addMessageToDisplay(message) {
+  // 将新消息添加到allMessages数组
+  allMessages.push(message);
+  
   const container = elements.messagesContainer;
   const displayFormat = elements.displayFormat.value;
   const showPingPong = elements.showPingPong.checked;
+  const filterKeyword = elements.messageFilter ? elements.messageFilter.value.trim() : '';
 
   // 检查是否需要显示（支持大小写不敏感）
   const msgType = (message.type || '').toLowerCase();
@@ -1922,6 +1950,24 @@ function addMessageToDisplay(message) {
   
   if ((isPingPong || message.type === 'heartbeat') && !showPingPong) {
     return;
+  }
+  
+  // 检查正向关键词筛选
+  if (filterKeyword) {
+    if (!matchesKeyword(message, filterKeyword)) {
+      return;
+    }
+  }
+  
+  // 检查反向过滤关键词列表（只要匹配任何一个就过滤掉）
+  if (reverseFilterKeywords.length > 0) {
+    for (const keywordObj of reverseFilterKeywords) {
+      const keyword = keywordObj.keyword ? keywordObj.keyword.trim() : '';
+      if (keyword && matchesKeyword(message, keyword)) {
+        // 匹配到反向过滤关键词，不显示这条消息
+        return;
+      }
+    }
   }
 
   const item = document.createElement('div');
@@ -2024,11 +2070,119 @@ async function loadMessages() {
     const response = await fetch(`${API_BASE}/messages`);
     const result = await response.json();
     if (result.success) {
-      displayMessages(result.data);
+      // 保存所有消息数据，用于筛选
+      allMessages = result.data || [];
+      displayMessages(allMessages);
     }
   } catch (error) {
     console.error('加载消息失败:', error);
   }
+}
+
+/**
+ * 添加反向过滤关键词
+ */
+function addReverseFilterKeyword(keyword = '') {
+  const keywordId = `reverse_filter_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const keywordObj = { id: keywordId, keyword: keyword };
+  reverseFilterKeywords.push(keywordObj);
+  
+  const container = elements.reverseFilterList;
+  const item = document.createElement('div');
+  item.className = 'key-value-item';
+  item.id = keywordId;
+  item.style.marginBottom = '4px';
+  item.innerHTML = `
+    <input type="text" class="value-input" placeholder="输入要过滤的关键词..." value="${escapeHtml(keyword)}" style="flex: 1; padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
+    <button type="button" class="btn btn-small btn-danger remove-btn" style="padding: 4px 8px; margin-left: 5px;">删除</button>
+  `;
+  
+  const input = item.querySelector('.value-input');
+  const removeBtn = item.querySelector('.remove-btn');
+  
+  input.addEventListener('input', () => {
+    keywordObj.keyword = input.value;
+    applyMessageFilter();
+  });
+  
+  removeBtn.addEventListener('click', () => {
+    const index = reverseFilterKeywords.findIndex(k => k.id === keywordId);
+    if (index > -1) {
+      reverseFilterKeywords.splice(index, 1);
+    }
+    item.remove();
+    applyMessageFilter();
+  });
+  
+  container.appendChild(item);
+  
+  // 如果输入框为空，自动聚焦
+  if (!keyword) {
+    input.focus();
+  }
+}
+
+/**
+ * 应用消息筛选
+ */
+function applyMessageFilter() {
+  if (allMessages.length === 0) {
+    // 如果没有消息数据，重新加载
+    loadMessages();
+    return;
+  }
+  displayMessages(allMessages);
+}
+
+/**
+ * 检查消息是否匹配关键词
+ * @param {Object} msg - 消息对象
+ * @param {string} keyword - 关键词
+ * @returns {boolean} 是否匹配
+ */
+function matchesKeyword(msg, keyword) {
+  if (!keyword || !keyword.trim()) {
+    return true; // 空关键词，显示所有消息
+  }
+  
+  const keywordLower = keyword.toLowerCase().trim();
+  
+  // 检查消息类型
+  const msgType = (msg.type || '').toLowerCase();
+  if (msgType.includes(keywordLower)) {
+    return true;
+  }
+  
+  // 检查消息数据内容
+  let msgDataStr = '';
+  if (msg.data !== null && msg.data !== undefined) {
+    if (typeof msg.data === 'string') {
+      msgDataStr = msg.data.toLowerCase();
+    } else if (typeof msg.data === 'object') {
+      // 如果是对象，尝试转换为JSON字符串进行搜索
+      try {
+        msgDataStr = JSON.stringify(msg.data).toLowerCase();
+      } catch (e) {
+        msgDataStr = String(msg.data).toLowerCase();
+      }
+    } else {
+      msgDataStr = String(msg.data).toLowerCase();
+    }
+    
+    if (msgDataStr.includes(keywordLower)) {
+      return true;
+    }
+  }
+  
+  // 检查时间戳
+  if (msg.timestamp) {
+    const timeStr = new Date(msg.timestamp).toLocaleString('zh-CN').toLowerCase();
+    if (timeStr.includes(keywordLower)) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 /**
@@ -2038,10 +2192,12 @@ function displayMessages(messages) {
   const container = elements.messagesContainer;
   const displayFormat = elements.displayFormat.value;
   const showPingPong = elements.showPingPong.checked;
+  const filterKeyword = elements.messageFilter ? elements.messageFilter.value.trim() : '';
   container.innerHTML = '';
 
   // 过滤消息（支持大小写不敏感）
   const filteredMessages = messages.filter(msg => {
+    // 首先检查ping/pong过滤
     const msgType = (msg.type || '').toLowerCase();
     const msgData = String(msg.data || '').toLowerCase().trim();
     
@@ -2050,8 +2206,29 @@ function displayMessages(messages) {
                        msgData === 'ping' || msgData === 'pong';
     
     if (isPingPong || msg.type === 'heartbeat') {
-      return showPingPong;
+      if (!showPingPong) {
+        return false;
+      }
     }
+    
+    // 检查正向关键词筛选
+    if (filterKeyword) {
+      if (!matchesKeyword(msg, filterKeyword)) {
+        return false;
+      }
+    }
+    
+    // 检查反向过滤关键词列表（只要匹配任何一个就过滤掉）
+    if (reverseFilterKeywords.length > 0) {
+      for (const keywordObj of reverseFilterKeywords) {
+        const keyword = keywordObj.keyword ? keywordObj.keyword.trim() : '';
+        if (keyword && matchesKeyword(msg, keyword)) {
+          // 匹配到反向过滤关键词，过滤掉这条消息
+          return false;
+        }
+      }
+    }
+    
     return true;
   });
 
@@ -2429,6 +2606,8 @@ async function clearMessages() {
     if (result.success) {
       showSuccess('消息已清空');
       elements.messagesContainer.innerHTML = '';
+      // 清空消息数据数组
+      allMessages = [];
     }
   } catch (error) {
     showError('清空消息失败: ' + error.message);

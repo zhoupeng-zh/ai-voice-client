@@ -245,6 +245,20 @@
             <a href="#" id="clear-messages-link" class="clear-link">清空消息</a>
           </div>
           <div class="messages-controls">
+            <div style="margin-bottom: 8px;">
+              <label style="display: flex; align-items: center; gap: 5px;">
+                <span style="font-size: 12px; color: #666;">筛选关键词:</span>
+                <input type="text" id="message-filter" placeholder="输入关键词筛选消息..." style="flex: 1; padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
+                <button type="button" id="clear-filter-btn" style="padding: 4px 8px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 12px;">清空</button>
+              </label>
+              <div style="margin-top: 8px;">
+                <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
+                  <span style="font-size: 12px; color: #666;">反向过滤关键词:</span>
+                  <button type="button" id="add-reverse-filter-btn" style="padding: 4px 8px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 12px;">添加</button>
+                </div>
+                <div id="reverse-filter-list" style="max-height: 120px; overflow-y: auto;"></div>
+              </div>
+            </div>
             <label>
               <input type="checkbox" id="auto-scroll" checked> 自动滚动
             </label>
